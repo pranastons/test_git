@@ -1,0 +1,297 @@
+
+
+$layout-grid-breakpoints: (
+desktop: 840px,
+tablet: 480px,
+phone: 0
+) !default;
+$layout-grid-columns: (
+desktop: 12,
+tablet: 8,
+phone: 4
+) !default;
+$layout-grid-default-margin: (
+desktop: 24px,
+tablet: 16px,
+phone: 16px
+) !default;
+$layout-grid-default-gutter: (
+desktop: 24px,
+tablet: 16px,
+phone: 16px
+) !default;
+$layout-grid-column-width: (
+desktop: 72px,
+tablet: 72px,
+phone: 72px
+) !default;
+$layout-grid-default-column-span: 4 !default;
+$layout-grid-max-width: null;
+
+
+// returns the lower grid boundary or null if the smallest grid is selected
+@function layout-grid-breakpoint-min($size) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+$min: map-get($layout-grid-breakpoints, $size);
+
+@return if($min != 0, $min, null);
+}
+
+// returns the upper grid boundary or null if the largest grid is selected
+@function layout-grid-breakpoint-max($size) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+$names: map-keys($layout-grid-columns);
+$n: index($names, $size);
+$prev: if($n > 1, nth($names, $n - 1), null);
+
+@return if($prev, (layout-grid-breakpoint-min($prev) - 1px), null);
+}
+
+// Private mixins, meant for internal use.
+@mixin layout-grid-media-query($size) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+
+$min: layout-grid-breakpoint-min($size);
+$max: layout-grid-breakpoint-max($size);
+
+@if $min == null and $max != null {
+// Phone
+@media (max-width: $max) {
+@content;
+}
+} @else if $min != null and $max != null {
+// Tablet
+@media (min-width: $min) and (max-width: $max) {
+@content;
+}
+} @else if $min != null and $max == null {
+// Desktop
+@media (min-width: $min) {
+@content;
+}
+} @else {
+// Fallback - no breakpoints defined
+@content;
+}
+}
+
+@mixin layout-grid-cell-span($size, $span, $gutter) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+
+$percent: percentage($span / map-get($layout-grid-columns, $size));
+
+@if $percent > 100% {
+$percent: 100%;
+}
+
+width: calc(#{$percent} - #{$gutter});
+width: calc(#{$percent} - var(--layout-grid-gutter-#{$size}, #{$gutter}));
+
+@supports (display: grid) {
+width: auto;
+grid-column-end: span min($span, map-get($layout-grid-columns, $size));
+}
+}
+
+// Public mixins, meant for developer usage.
+@mixin layout-grid($size, $margin, $max-width: null) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+
+box-sizing: border-box;
+margin: 0 auto;
+
+@if $max-width {
+max-width: $max-width;
+}
+
+padding: $margin;
+padding: var(--layout-grid-margin-#{$size}, #{$margin});
+}
+
+@mixin layout-grid-inner($size, $margin, $gutter) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+
+display: flex;
+flex-flow: row wrap;
+align-items: stretch;
+margin: -$gutter / 2;
+margin: calc(var(--layout-grid-gutter-#{$size}, #{$gutter}) / 2 * -1);
+
+@supports (display: grid) {
+display: grid;
+grid-gap: $gutter;
+grid-gap: var(--layout-grid-gutter-#{$size}, $gutter);
+margin: 0;
+grid-template-columns: repeat(map-get($layout-grid-columns, $size), minmax(0, 1fr));
+}
+}
+
+@mixin layout-grid-cell($size, $default-span, $gutter) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+
+box-sizing: border-box;
+margin: $gutter / 2;
+margin: calc(var(--layout-grid-gutter-#{$size}, #{$gutter}) / 2);
+
+@supports (display: grid) {
+margin: 0;
+}
+
+@include layout-grid-cell-span($size, $default-span, $gutter);
+}
+
+@mixin layout-grid-cell-order($order) {
+order: $order;
+}
+
+@mixin layout-grid-cell-align($position) {
+@if $position == "top" {
+align-self: flex-start;
+
+@supports (display: grid) {
+align-self: start;
+}
+}
+
+@if $position == "middle" {
+align-self: center;
+}
+
+@if $position == "bottom" {
+align-self: flex-end;
+
+@supports (display: grid) {
+align-self: end;
+}
+}
+
+@if $position == "stretch" {
+align-self: stretch;
+}
+}
+
+@mixin layout-grid-fixed-column-width($size, $margin, $gutter, $column-width) {
+@if not map-has-key($layout-grid-columns, $size) {
+@error "Invalid style specified! Choose one of #{map-keys($layout-grid-columns)}";
+}
+
+$column-Count: map-get($layout-grid-columns, $size);
+$gutter-number: $column-Count - 1;
+$margin-number: 2;
+
+width: $column-width * $column-Count + $gutter * $gutter-number + $margin * $margin-number;
+width: calc(
+var(--layout-grid-column-width-#{$size}, #{$column-width}) * #{$column-Count} +
+var(--layout-grid-gutter-#{$size}, #{$gutter}) * #{$gutter-number} +
+var(--layout-grid-margin-#{$size}, #{$margin}) * #{$margin-number}
+);
+}
+
+:root {
+@each $size in map-keys($layout-grid-columns) {
+--layout-grid-margin-#{$size}: map-get($layout-grid-default-margin, $size);
+--layout-grid-gutter-#{$size}: map-get($layout-grid-default-gutter, $size);
+--layout-grid-column-width-#{$size}: map-get($layout-grid-column-width, $size);
+}
+}
+
+// postcss-bem-linter: define layout-grid
+.layout-grid {
+@each $size in map-keys($layout-grid-columns) {
+@include layout-grid-media-query($size) {
+$margin: map-get($layout-grid-default-margin, $size);
+
+@include layout-grid($size, $margin, $layout-grid-max-width);
+}
+}
+}
+
+.layout-grid__inner {
+@each $size in map-keys($layout-grid-columns) {
+@include layout-grid-media-query($size) {
+$margin: map-get($layout-grid-default-margin, $size);
+$gutter: map-get($layout-grid-default-gutter, $size);
+
+@include layout-grid-inner($size, $margin, $gutter);
+}
+}
+}
+
+.layout-grid__cell {
+// select the upper breakpoint
+$upper-breakpoint: nth(map-keys($layout-grid-columns), 1);
+
+@each $size in map-keys($layout-grid-columns) {
+@include layout-grid-media-query($size) {
+$gutter: map-get($layout-grid-default-gutter, $size);
+
+@include layout-grid-cell($size, $layout-grid-default-column-span, $gutter);
+
+@for $span from 1 through map-get($layout-grid-columns, $upper-breakpoint) {
+// Span classes.
+// stylelint-disable max-nesting-depth
+@at-root .layout-grid__cell--span-#{$span},
+.layout-grid__cell--span-#{$span}-#{$size} {
+@include layout-grid-cell-span($size, $span, $gutter);
+}
+// stylelint-enable max-nesting-depth
+}
+}
+}
+
+// Order override classes.
+@for $i from 1 through map-get($layout-grid-columns, $upper-breakpoint) {
+&--order-#{$i} {
+@include layout-grid-cell-order($i);
+}
+}
+
+// Alignment classes.
+&--align-top {
+@include layout-grid-cell-align(top);
+}
+
+&--align-middle {
+@include layout-grid-cell-align(middle);
+}
+
+&--align-bottom {
+@include layout-grid-cell-align(bottom);
+}
+}
+
+.layout-grid--fixed-column-width {
+@each $size in map-keys($layout-grid-columns) {
+@include layout-grid-media-query($size) {
+$margin: map-get($layout-grid-default-margin, $size);
+$gutter: map-get($layout-grid-default-gutter, $size);
+$column-width: map-get($layout-grid-column-width, $size);
+
+@include layout-grid-fixed-column-width($size, $margin, $gutter, $column-width);
+}
+}
+}
+
+.layout-grid--align-left {
+margin-right: auto;
+margin-left: 0;
+}
+
+.layout-grid--align-right {
+margin-right: 0;
+margin-left: auto;
+}
